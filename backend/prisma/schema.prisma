@@ -1,0 +1,132 @@
+// ───────────────────────────────────────────────────────────────
+// SupportFlow — Prisma schema
+// Docs: https://pris.ly/d/prisma-schema
+// ───────────────────────────────────────────────────────────────
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+// ─── Enums ───────────────────────────────────────────────────────
+
+enum UserRole {
+  ADMIN
+  SUPPORT_AGENT
+  CUSTOMER
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum TicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+// ─── Models ──────────────────────────────────────────────────────
+
+/// A person who can sign in. The `role` decides what they can do.
+/// Customers, support agents, and admins all live in this one table.
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  role         UserRole @default(CUSTOMER)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Tickets this user opened (when acting as a customer)
+  createdTickets  Ticket[] @relation("TicketCreatedBy")
+  // Tickets assigned to this user (when acting as an agent)
+  assignedTickets Ticket[] @relation("TicketAssignedAgent")
+  comments        TicketComment[]
+  statusChanges   TicketStatusHistory[] @relation("StatusChangedBy")
+
+  @@index([role])
+}
+
+/// The core support request.
+model Ticket {
+  id          String         @id @default(cuid())
+  title       String
+  description String         @db.Text
+  status      TicketStatus   @default(OPEN)
+  priority    TicketPriority @default(MEDIUM)
+  category    String?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  // Who created the ticket (the customer)
+  createdById String
+  createdBy   User   @relation("TicketCreatedBy", fields: [createdById], references: [id])
+
+  // Which agent it is assigned to (optional — unassigned until triaged)
+  assignedAgentId String?
+  assignedAgent   User?  @relation("TicketAssignedAgent", fields: [assignedAgentId], references: [id])
+
+  comments      TicketComment[]
+  statusHistory TicketStatusHistory[]
+  attachments   Attachment[]
+
+  @@index([status])
+  @@index([priority])
+  @@index([createdById])
+  @@index([assignedAgentId])
+}
+
+/// A message/reply on a ticket (the conversation thread).
+model TicketComment {
+  id        String   @id @default(cuid())
+  body      String   @db.Text
+  createdAt DateTime @default(now())
+
+  ticketId String
+  ticket   Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  authorId String
+  author   User   @relation(fields: [authorId], references: [id])
+
+  @@index([ticketId])
+}
+
+/// An audit row written every time a ticket's status changes.
+model TicketStatusHistory {
+  id         String        @id @default(cuid())
+  fromStatus TicketStatus?
+  toStatus   TicketStatus
+  createdAt  DateTime      @default(now())
+
+  ticketId String
+  ticket   Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  changedById String
+  changedBy   User   @relation("StatusChangedBy", fields: [changedById], references: [id])
+
+  @@index([ticketId])
+}
+
+/// A file attached to a ticket. We store metadata + a URL, not the bytes.
+model Attachment {
+  id        String   @id @default(cuid())
+  fileName  String
+  fileUrl   String
+  fileSize  Int
+  mimeType  String
+  createdAt DateTime @default(now())
+
+  ticketId String
+  ticket   Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId])
+}
