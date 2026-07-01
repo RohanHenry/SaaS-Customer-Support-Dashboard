@@ -25,6 +25,11 @@ const adapter = new PrismaMariaDb({
   password: decodeURIComponent(url.password),
   database: url.pathname.replace(/^\//, ""),
   connectionLimit: 5,
+  // Many cloud MySQL hosts (e.g. Aiven) require a TLS connection. Enable it by
+  // setting DATABASE_SSL=true. Local MySQL doesn't need it, so it stays off.
+  ...(process.env.DATABASE_SSL === "true"
+    ? { ssl: { rejectUnauthorized: false } }
+    : {}),
 });
 
 const globalForPrisma = globalThis as unknown as {

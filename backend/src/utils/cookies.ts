@@ -17,14 +17,22 @@ const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 export function setAuthCookie(res: Response, token: string): void {
   res.cookie(AUTH_COOKIE_NAME, token, {
     httpOnly: true,
-    secure: env.isProduction, // only sent over HTTPS in production
-    sameSite: "lax", // sent on same-site requests (localhost:3000 → localhost:4000)
+    // In production the frontend (e.g. vercel.app) and backend (e.g. railway.app)
+    // are on different sites, so the cookie must be SameSite=None + Secure to be
+    // sent cross-site. Locally we use Lax over http (Secure would block it).
+    secure: env.isProduction,
+    sameSite: env.isProduction ? "none" : "lax",
     maxAge: SEVEN_DAYS_MS,
     path: "/",
   });
 }
 
-/** Remove the auth cookie (used on logout). */
+/** Remove the auth cookie (used on logout). Attributes must match setAuthCookie. */
 export function clearAuthCookie(res: Response): void {
-  res.clearCookie(AUTH_COOKIE_NAME, { path: "/" });
+  res.clearCookie(AUTH_COOKIE_NAME, {
+    httpOnly: true,
+    secure: env.isProduction,
+    sameSite: env.isProduction ? "none" : "lax",
+    path: "/",
+  });
 }

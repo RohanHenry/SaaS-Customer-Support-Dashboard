@@ -21,6 +21,7 @@ Set these environment variables on your backend host:
 | Variable | Example |
 |---|---|
 | `DATABASE_URL` | `mysql://user:pass@host:3306/supportflow` |
+| `DATABASE_SSL` | `true` if your MySQL host requires TLS (e.g. Aiven); else omit |
 | `JWT_SECRET` | a long random string (e.g. `openssl rand -hex 32`) |
 | `CLIENT_URL` | your deployed frontend URL, e.g. `https://supportflow.vercel.app` |
 | `NODE_ENV` | `production` |
